@@ -12,7 +12,7 @@ packer {
 }
 
 source "tart-cli" "tart" {
-  from_ipsw    = "https://updates.cdn-apple.com/2026SpringFCS/fullrestores/122-58869/DFB1CEEF-5619-4591-9924-E20DB2C8FED0/UniversalMac_26.5_25F71_Restore.ipsw"
+  from_ipsw    = "https://updates.cdn-apple.com/2026SummerFCS/fullrestores/140-65618/10445B26-DE2C-43EC-9149-0A831602E74B/UniversalMac_26.6_25G72_Restore.ipsw"
   vm_name      = "tahoe-vanilla"
   cpu_count    = 4
   memory_gb    = 8
@@ -21,64 +21,9 @@ source "tart-cli" "tart" {
   ssh_username = "admin"
   ssh_timeout  = "180s"
   boot_command = [
-    # hello, hola, bonjour, etc.
-    "<wait60s><spacebar>",
-    # Language: most of the times we have a list of "English"[1], "English (UK)", etc. with
-    # "English" language already selected. If we type "english", it'll cause us to switch
-    # to the "English (UK)", which is not what we want. To solve this, we switch to some other
-    # language first, e.g. "Italiano" and then switch back to "English". We'll then jump to the
-    # first entry in a list of "english"-prefixed items, which will be "English".
-    #
-    # [1]: should be named "English (US)", but oh well 🤷
-    "<wait30s>italiano<esc>english<enter>",
-    # Select Your Country or Region
-    "<wait60s><click 'Select Your Country or Region'><wait5s>united states<leftShiftOn><tab><leftShiftOff><spacebar>",
-    # Transfer Your Data to This Mac
-    "<wait10s><tab><tab><tab><spacebar><tab><tab><spacebar>",
-    # Written and Spoken Languages
-    "<wait10s><leftShiftOn><tab><leftShiftOff><spacebar>",
-    # Accessibility
-    "<wait10s><leftShiftOn><tab><leftShiftOff><spacebar>",
-    # Data & Privacy
-    "<wait10s><leftShiftOn><tab><leftShiftOff><spacebar>",
-    # Create a Mac Account
-    "<wait10s><tab><tab><tab><tab><tab><tab>Managed via Tart<tab>admin<tab>admin<tab>admin<tab><tab><spacebar><tab><tab><spacebar>",
-    # Enable Voice Over
-    "<wait120s><leftAltOn><f5><leftAltOff>",
-    # Sign In with Your Apple ID
-    "<wait10s><leftShiftOn><tab><leftShiftOff><spacebar><up><spacebar>",
-    # Are you sure you want to skip signing in with an Apple ID?
-    "<wait10s><tab><spacebar>",
-    # Terms and Conditions
-    "<wait10s><leftShiftOn><tab><leftShiftOff><spacebar>",
-    # I have read and agree to the macOS Software License Agreement
-    "<wait10s><tab><spacebar>",
-    # Age Range -> Adult
-    "<wait10s><tab><tab><tab><spacebar>",
-    # Enable Location Services
-    "<wait10s><leftShiftOn><tab><leftShiftOff><spacebar>",
-    # Are you sure you don't want to use Location Services?
-    "<wait10s><tab><spacebar>",
-    # Select Your Time Zone
-    "<wait10s><tab><tab><tab>UTC<enter><leftShiftOn><tab><leftShiftOff><spacebar>",
-    # Analytics
-    "<wait10s><leftShiftOn><tab><leftShiftOff><spacebar>",
-    # Screen Time
-    "<wait10s><tab><tab><spacebar>",
-    # Siri
-    "<wait10s><tab><spacebar><leftShiftOn><tab><leftShiftOff><spacebar>",
-    # You Mac is Ready for FileVault
-    "<wait10s><leftShiftOn><tab><tab><leftShiftOff><spacebar>",
-    # Mac Data Will Not Be Securely Encrypted
-    "<wait10s><tab><spacebar>",
-    # Choose Your Look
-    "<wait10s><leftShiftOn><tab><leftShiftOff><spacebar>",
-    # Update Mac Automatically
-    "<wait10s><tab><tab><spacebar>",
-    # Welcome to Mac
-    "<wait30s><spacebar>",
-    # Disable Voice Over
-    "<wait10s><leftAltOn><f5><leftAltOff>",
+    # Do manual setup within 5 minutes!
+    # Use "Managed by Tart" as full name, "admin" as username and password.
+    "<wait300s>",
     # Enable Keyboard navigation
     # This is so that we can navigate the System Settings app using the keyboard
     "<wait10s><leftAltOn><spacebar><leftAltOff>Terminal<wait10s><enter>",
