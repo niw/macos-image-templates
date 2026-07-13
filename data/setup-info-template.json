@@ -22,30 +22,6 @@
       {
         "name": "Python Version",
         "script": "python3 --version"
-      },
-      {
-        "name": "Node Version",
-        "script": "node --version"
-      },
-      {
-        "name": "Ruby Version",
-        "script": "ruby --version"
-      },
-      {
-        "name": "Bundler Version",
-        "script": "bundler --version"
-      },
-      {
-        "name": "CocoaPods Version",
-        "script": "pod --version"
-      },
-      {
-        "name": "Fastlane Version",
-        "script": "fastlane --version"
-      },
-      {
-        "name": "SwiftLint Version",
-        "script": "swiftlint --version"
       }
     ]
   }
