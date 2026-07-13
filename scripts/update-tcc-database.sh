@@ -40,8 +40,5 @@ update_tcc_database() {
 	EOF
 }
 
-# Update TCC.db for all users
-update_tcc_database "/Library/Application Support/com.apple.TCC/TCC.db"
-
 # Update TCC.db for the current user
 update_tcc_database "${HOME}/Library/Application Support/com.apple.TCC/TCC.db"

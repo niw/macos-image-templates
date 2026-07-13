@@ -63,11 +63,8 @@ build {
       "source ~/.zprofile",
       "brew --version",
       "brew update",
-      "brew install wget unzip zip ca-certificates cmake gcc git-lfs jq yq gh gitlab-runner",
-      "brew install buildkite/buildkite/buildkite-agent",
-      "brew install equinix-labs/otel-cli/otel-cli",
+      "brew install wget ca-certificates git git-lfs jq gh",
       "brew install curl || true", // doesn't work on Monterey
-      "brew install --cask git-credential-manager",
       "git lfs install",
       "sudo softwareupdate --install-rosetta --agree-to-license"
     ]
@@ -103,20 +100,6 @@ build {
   provisioner "shell" {
     inline = [
       "source ~/.zprofile",
-      "brew install libyaml", # https://github.com/rbenv/ruby-build/discussions/2118
-      "brew install rbenv",
-      "echo 'if which rbenv > /dev/null; then eval \"$(rbenv init -)\"; fi' >> ~/.zprofile",
-      "brew install mise",
-      "source ~/.zprofile",
-      "rbenv install 2.7.8", // latest 2.x.x before EOL
-      "rbenv install -l | grep -v - | tail -2 | xargs -L1 rbenv install",
-      "rbenv global $(rbenv install -l | grep -v - | tail -1)",
-      "gem install bundler",
-    ]
-  }
-  provisioner "shell" {
-    inline = [
-      "source ~/.zprofile",
       "brew install node@24",
       "echo 'export PATH=\"/opt/homebrew/opt/node@24/bin:$PATH\"' >> ~/.zprofile",
       "source ~/.zprofile",
@@ -128,12 +111,6 @@ build {
   provisioner "shell" {
     inline = [
       "sudo safaridriver --enable",
-    ]
-  }
-  provisioner "shell" {
-    inline = [
-      "source ~/.zprofile",
-      "brew install awscli"
     ]
   }
 
