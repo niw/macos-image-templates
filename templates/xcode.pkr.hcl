@@ -15,14 +15,24 @@ variable "xcode_version" {
   type = list(string)
 }
 
-variable "additional_ios_builds" {
-  type    = list(string)
-  default = []
+variable "ios_simulator_version" {
+  type = string
+  default = ""
 }
 
-variable "additional_tvos_builds" {
-  type    = list(string)
-  default = []
+variable "tvos_simulator_version" {
+  type = string
+  default = ""
+}
+
+variable "watchos_simulator_version" {
+  type = string
+  default = ""
+}
+
+variable "visionos_simulator_version" {
+  type = string
+  default = ""
 }
 
 variable "xcode_components" {
@@ -52,18 +62,13 @@ variable "disk_free_mb" {
   default = 15000
 }
 
-variable "android_sdk_tools_version" {
-  type    = string
-  default = "14742923" # https://developer.android.com/studio#command-line-tools-only
-}
-
 source "tart-cli" "tart" {
-  // The workflow sizes the VM before boot; only the guest daemon resizes APFS.
-  recovery_partition = "keep"
+  vm_base_name = "${var.macos_version}-base"
   // use tag or the last element of the xcode_version list
   vm_name      = "${var.macos_version}-xcode:${var.tag != "" ? var.tag : var.xcode_version[0]}"
   cpu_count    = 4
   memory_gb    = 8
+  disk_size_gb = var.disk_size
   headless     = true
   ssh_password = "admin"
   ssh_username = "admin"
@@ -76,14 +81,14 @@ locals {
       type = "shell"
       inline = [
         "source ~/.zprofile",
-        "sudo xcodes install ${version} --experimental-unxip --path /Users/admin/Downloads/Xcode_${version}.xip --select --empty-trash",
+        // xcodes expects a version such as "27.1 beta" for "27.1_beta"
+        "sudo xcodes install '${replace(version, "_", " ")}' --experimental-unxip --path /Users/admin/Downloads/Xcode_${version}.xip --select --empty-trash",
         // get selected xcode path, strip /Contents/Developer and move to GitHub compatible locations
         "INSTALLED_PATH=$(xcodes select -p)",
         "CONTENTS_DIR=$(dirname $INSTALLED_PATH)",
         "APP_DIR=$(dirname $CONTENTS_DIR)",
         "sudo mv $APP_DIR /Applications/Xcode_${version}.app",
         "sudo xcode-select -s /Applications/Xcode_${version}.app",
-        "xcodebuild -downloadPlatform iOS",
         "xcodebuild -runFirstLaunch",
         "df -h",
       ]
@@ -94,54 +99,10 @@ locals {
 build {
   sources = ["source.tart-cli.tart"]
 
-  provisioner "shell" {
-    // Allow 6 GB for boot/recovery partitions and metadata; Tart uses decimal GB.
-    inline = [
-      "minimum_kb=${floor((var.disk_size - 6) * 1000000000 / 1024)}",
-      "for ((attempt = 0; attempt < 60; attempt++)); do",
-      "  size_kb=$(df -k /System/Volumes/Data | awk 'NR == 2 {print $2}')",
-      "  [[ $size_kb -ge $minimum_kb ]] && break",
-      "  sleep 2",
-      "done",
-      "[[ $size_kb -ge $minimum_kb ]] || { echo 'APFS did not expand to ${var.disk_size} GB within 120 seconds.' >&2; exit 1; }",
-      "source ~/.zprofile",
-      "brew --version",
-      "brew update",
-      "brew upgrade",
-      "brew install codex",
-      "brew install --cask claude-code",
-      "brew install --cask amazon-q"
-    ]
-  }
-
-  // Re-install the GitHub Actions runner
-  provisioner "shell" {
-    script = "scripts/install-actions-runner.sh"
-  }
-
   // make sure our workaround from base is still valid
   provisioner "shell" {
     inline = [
       "sudo ln -s /Users/admin /Users/runner || true"
-    ]
-  }
-
-  provisioner "shell" {
-    inline = [
-      "source ~/.zprofile",
-      "brew install openjdk@17",
-      "echo 'export PATH=\"/opt/homebrew/opt/openjdk@17/bin:$PATH\"' >> ~/.zprofile",
-      "echo 'export ANDROID_HOME=$HOME/android-sdk' >> ~/.zprofile",
-      "echo 'export ANDROID_SDK_ROOT=$ANDROID_HOME' >> ~/.zprofile",
-      "echo 'export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator' >> ~/.zprofile",
-      "source ~/.zprofile",
-      "wget -q https://dl.google.com/android/repository/commandlinetools-mac-${var.android_sdk_tools_version}_latest.zip -O android-sdk-tools.zip",
-      "mkdir -p $ANDROID_HOME/cmdline-tools/",
-      "unzip -q android-sdk-tools.zip -d $ANDROID_HOME/cmdline-tools/",
-      "rm android-sdk-tools.zip",
-      "mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest",
-      "yes | sdkmanager --licenses",
-      "yes | sdkmanager 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358'"
     ]
   }
 
@@ -154,7 +115,7 @@ build {
   }
 
   provisioner "file" {
-    sources     = [for version in var.xcode_version : pathexpand("~/XcodesCache/Xcode_${version}.xip")]
+    sources     = [for version in var.xcode_version : pathexpand("~/Downloads/Xcode_${version}.xip")]
     destination = "/Users/admin/Downloads/"
   }
 
@@ -175,54 +136,29 @@ build {
     }
   }
 
-  dynamic "provisioner" {
-    for_each = length(var.xcode_version) > 2 ? [2] : []
-    labels   = ["shell"]
-    content {
-      inline = [
-        "source ~/.zprofile",
-        "sudo xcode-select -s /Applications/Xcode_${var.xcode_version[2]}.app/Contents/Developer",
-        "xcodebuild -downloadAllPlatforms",
-      ]
-    }
-  }
-
-  dynamic "provisioner" {
-    for_each = length(var.xcode_version) > 1 ? [1] : []
-    labels   = ["shell"]
-    content {
-      inline = [
-        "source ~/.zprofile",
-        "sudo xcode-select -s /Applications/Xcode_${var.xcode_version[1]}.app/Contents/Developer",
-        "xcodebuild -downloadAllPlatforms",
-      ]
-    }
-  }
-
-  // Download legacy iOS runtimes before selecting the newest Xcode.
+  // disable downloading developer documentation in Xcode
   provisioner "shell" {
-    inline = concat(
-      ["source ~/.zprofile"],
-      [
-        for runtime in var.additional_ios_builds : "xcodebuild -downloadPlatform iOS -buildVersion ${runtime}"
-      ]
-    )
+    inline = [
+      "defaults write com.apple.dt.Xcode IDEDeveloperDocumentationDownloadableEnabled -bool NO",
+      "defaults write com.apple.dt.Xcode IDEDeveloperDocumentationSelectedDuringFirstLaunch -bool NO",
+    ]
   }
 
   provisioner "shell" {
     inline = [
       "source ~/.zprofile",
       "sudo xcode-select -s /Applications/Xcode_${var.xcode_version[0]}.app/Contents/Developer",
-      "xcodebuild -downloadAllPlatforms",
     ]
   }
 
   provisioner "shell" {
     inline = concat(
       ["source ~/.zprofile"],
-      [
-        for runtime in var.additional_tvos_builds : "xcodebuild -downloadPlatform tvOS -buildVersion ${runtime}"
-      ]
+      // simulator runtimes are downloaded only when build versions are given, separated by commas
+      [for version in split(",", var.ios_simulator_version) : "xcodebuild -downloadPlatform iOS -buildVersion ${trimspace(version)}" if trimspace(version) != ""],
+      [for version in split(",", var.tvos_simulator_version) : "xcodebuild -downloadPlatform tvOS -buildVersion ${trimspace(version)}" if trimspace(version) != ""],
+      [for version in split(",", var.watchos_simulator_version) : "xcodebuild -downloadPlatform watchOS -buildVersion ${trimspace(version)}" if trimspace(version) != ""],
+      [for version in split(",", var.visionos_simulator_version) : "xcodebuild -downloadPlatform visionOS -buildVersion ${trimspace(version)}" if trimspace(version) != ""]
     )
   }
 
@@ -233,72 +169,6 @@ build {
         for component in var.xcode_components : "xcodebuild -downloadComponent ${component}"
       ]
     )
-  }
-
-  provisioner "shell" {
-    inline = [
-      "source ~/.zprofile",
-      "brew install libimobiledevice ideviceinstaller ios-deploy carthage",
-      "brew install xcbeautify swiftformat swiftlint swiftgen licenseplist",
-      "brew install mint",
-      "git clone --depth 1 https://github.com/tuist/homebrew-tuist.git \"$(brew --repository)/Library/Taps/tuist/homebrew-tuist\"",
-      "rm -rf \"$(brew --repository)/Library/Taps/tuist/homebrew-tuist/Casks\"",
-      "tuist_version=$(ruby -ne 'if $_ =~ %r{/download/([^/]+)/}; puts $1; exit; end' \"$(brew --repository)/Library/Taps/tuist/homebrew-tuist/Aliases/tuist\") && brew trust --formula \"tuist/tuist/tuist@$tuist_version\" && brew install --formula \"tuist/tuist/tuist@$tuist_version\"",
-      "gem update",
-      "gem install fastlane",
-      "gem install cocoapods",
-      "gem install xcpretty",
-      "gem uninstall --ignore-dependencies ffi && gem install ffi -- --enable-libffi-alloc"
-    ]
-  }
-
-  // Copy expected runtimes file if provided
-  dynamic "provisioner" {
-    for_each = var.expected_runtimes_file != "" ? [1] : []
-    labels   = ["file"]
-    content {
-      source      = var.expected_runtimes_file
-      destination = "/Users/admin/runtimes.expected.txt"
-    }
-  }
-
-  // Verify simulator runtimes match expected list if file was provided
-  dynamic "provisioner" {
-    for_each = var.expected_runtimes_file != "" ? [1] : []
-    labels   = ["shell"]
-    content {
-      inline = [
-        "source ~/.zprofile",
-        "xcrun simctl list runtimes > /Users/admin/runtimes.actual.txt",
-        "diff -q /Users/admin/runtimes.actual.txt /Users/admin/runtimes.expected.txt || (echo 'Simulator runtimes do not match expected list' && cat /Users/admin/runtimes.actual.txt && exit 1)",
-        "rm /Users/admin/runtimes.actual.txt /Users/admin/runtimes.expected.txt"
-      ]
-    }
-  }
-
-  provisioner "shell" {
-    inline = [
-      "source ~/.zprofile",
-      "echo 'export FLUTTER_HOME=$HOME/flutter' >> ~/.zprofile",
-      "echo 'export PATH=$HOME/flutter:$HOME/flutter/bin/:$HOME/flutter/bin/cache/dart-sdk/bin:$PATH' >> ~/.zprofile",
-      "source ~/.zprofile",
-      "git clone https://github.com/flutter/flutter.git $FLUTTER_HOME",
-      "cd $FLUTTER_HOME",
-      "git checkout stable",
-      "flutter doctor --android-licenses",
-      "flutter doctor",
-      "flutter precache",
-    ]
-  }
-
-  # useful utils for mobile development
-  provisioner "shell" {
-    inline = [
-      "source ~/.zprofile",
-      "brew install graphicsmagick imagemagick",
-      "brew install wix/brew/applesimutils",
-      "brew install gnupg"
-    ]
   }
 
   # inspired by https://github.com/actions/runner-images/blob/fb3b6fd69957772c1596848e2daaec69eabca1bb/images/macos/provision/configuration/configure-machine.sh#L33-L61
@@ -312,13 +182,6 @@ build {
       "sudo ./add-certificate AppleWWDRCAG3.cer",
       "sudo ./add-certificate DeveloperIDG2CA.cer",
       "rm add-certificate* *.cer"
-    ]
-  }
-
-  provisioner "shell" {
-    inline = [
-      "source ~/.zprofile",
-      "flutter doctor"
     ]
   }
 
@@ -370,6 +233,7 @@ build {
   # [2]: https://github.com/actions/runner-images/discussions/7607
   provisioner "shell" {
     inline = [
+      "sudo mkdir -p /usr/local/bin",
       "sudo chown admin /usr/local/bin"
     ]
   }
